@@ -1,93 +1,101 @@
-# Multi-stage Docker compose for development
-
 version: '3.9'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - Docker Hardened Image
   postgres:
-    image: postgres:14-alpine
-    container_name: society_postgres
+    image: dhi.io/postgres:17-debian13
+    container_name: society-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: society_db
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-society}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - society_network
+      - society-network
+    restart: unless-stopped
 
-  # Redis Cache
+  # Redis Cache - Docker Hardened Image
   redis:
-    image: redis:7-alpine
-    container_name: society_redis
+    image: dhi.io/redis:7-debian13
+    container_name: society-cache
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    volumes:
-      - redis_data:/data
     networks:
-      - society_network
+      - society-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
 
   # FastAPI Backend
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: society_backend
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: society-api
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/society_db
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-changeme}@postgres:5432/${DB_NAME:-society}
       REDIS_URL: redis://redis:6379/0
-      ENVIRONMENT: development
-      SECRET_KEY: dev-secret-key-change-in-production
-      CORS_ORIGINS: http://localhost:3000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
     networks:
-      - society_network
+      - society-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "http.client", "localhost", "8000", "/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # React Frontend
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: society_frontend
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    container_name: society-web
     environment:
-      REACT_APP_API_URL: http://localhost:8000
-      REACT_APP_LOG_LEVEL: debug
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:8000}
     depends_on:
       - backend
-    command: npm start
+    ports:
+      - "3000:3000"
     networks:
-      - society_network
+      - society-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  society-network:
+    driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
-
-networks:
-  society_network:
-    driver: bridge

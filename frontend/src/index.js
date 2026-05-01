@@ -1,10 +1,11 @@
-# Frontend source code
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
 
-# TODO: Create React components and pages
-# - components/common/ (shared components)
-# - components/Digest/ (digest viewer)
-# - components/DemandSupply/ (marketplace)
-# - components/Auth/ (authentication)
-# - pages/ (main pages)
-# - services/api.js (API client)
-# - store/ (Redux store)
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

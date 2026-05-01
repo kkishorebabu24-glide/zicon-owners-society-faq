@@ -1,48 +1,34 @@
-# Backend Dockerfile - Multi-stage build
+#syntax=docker/dockerfile:1
 
-# Stage 1: Builder
-FROM python:3.10-slim as builder
+# === Build stage: Install dependencies ===
+FROM dhi.io/python:3.10-debian13-dev AS builder
 
 WORKDIR /app
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Stage 2: Runtime
-FROM python:3.10-slim
+# === Final stage: Runtime ===
+FROM dhi.io/python:3.10-debian13
 
 WORKDIR /app
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /root/.local
 
-# Set PATH
+# Set PATH to use installed packages
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy application code
-COPY . .
-
-# Create app user (security best practice)
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# Copy application code with proper ownership (DHI runtime images run as appuser)
+COPY --chown=appuser:appuser backend . .
 
 # Expose port
 EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
 
-# Run application
+# Run application (appuser is the default user in DHI runtime images)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

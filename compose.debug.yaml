@@ -1,0 +1,6 @@
+services:
+  ziconownerssocietyfaq:
+    image: ziconownerssocietyfaq
+    build:
+      context: .
+      dockerfile: ./Dockerfile

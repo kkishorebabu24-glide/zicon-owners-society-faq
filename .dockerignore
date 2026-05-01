@@ -1,0 +1,64 @@
+# Docker build context exclusions
+# Speeds up builds and reduces context size
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Version control
+.github
+.gitlab-ci.yml
+.gitpod.yml
+
+# Documentation
+*.md
+docs/
+food-platform-docs/
+food-platform-demo.html
+
+# IDE & Development
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+.env
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+frontend/build/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+backend/venv/
+backend/.env
+
+# Docker
+.docker
+.dockerignore
+docker-compose*.yml
+Dockerfile*
+
+# Build artifacts
+dist/
+build/
+
+# Misc
+.pre-commit-config.yaml
+BRANCHING.md
+COMMIT_CONVENTIONS.md
+CONTRIBUTING.md
+PROJECT_BOARD.md
+CHANGELOG.md
+setup.cfg
