@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Society Food Platform - Demo</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23667eea'/%3E%3Ctext x='8' y='12' font-size='10' text-anchor='middle' fill='white'%3ESF%3C/text%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .hero {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .menu-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .rating {
+            color: #ffd700;
+            font-size: 1rem;
+        }
+
+        .menu-details {
+            margin: 0.5rem 0;
+        }
+
+        .price {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .category {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.2rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin: 0.5rem 0;
+        }
+
+        .pickup-time {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .order-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .order-btn:hover {
+            background: #45a049;
+        }
+
+        .tabs {
+            display: flex;
+            margin: 1rem 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            background: #f5f5f5;
+            transition: background 0.2s;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .seller-info {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0;
+        }
+
+        .seller-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+
+        .status {
+            padding: 1rem;
+            background: white;
+            border-radius: 10px;
+            margin: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .status.success {
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status.warning {
+            border-left: 4px solid #ff9800;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.5rem;
+            }
+
+            .menu-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🍽️ Society Food Platform</h1>
+        <p>Home-cooked meals from your neighbors</p>
+    </div>
+
+    <div class="container">
+        <div class="status success">
+            <h3>✅ App Launched Successfully!</h3>
+            <p>This is a demo interface showing how the Society Food Platform would look when running. In a real environment, this would connect to the FastAPI backend and display live data.</p>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active">🍽️ Browse Meals</div>
+            <div class="tab">📋 My Orders</div>
+            <div class="tab">👤 Profile</div>
+        </div>
+
+        <div class="hero">
+            <h2>Today's Fresh Meals</h2>
+            <p>Discover home-cooked food from residents in your society</p>
+        </div>
+
+        <div class="menu-grid">
+            <!-- Menu Item 1 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Paneer Butter Masala</div>
+                    <div class="rating">⭐ 4.8</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">P</div>
+                    <span>Priya Sharma (A-1205)</span>
+                </div>
+                <div class="category">Vegetarian</div>
+                <div class="menu-details">
+                    <div class="price">₹150</div>
+                    <div class="pickup-time">Pickup: 8:00 PM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+
+            <!-- Menu Item 2 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Chicken Biryani</div>
+                    <div class="rating">⭐ 4.9</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">R</div>
+                    <span>Rajesh Kumar (A-0803)</span>
+                </div>
+                <div class="category">Non-Vegetarian</div>
+                <div class="menu-details">
+                    <div class="price">₹180</div>
+                    <div class="pickup-time">Pickup: 7:30 PM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+
+            <!-- Menu Item 3 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Veg Kolhapuri</div>
+                    <div class="rating">⭐ 4.7</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">A</div>
+                    <span>Anita Desai (A-1502)</span>
+                </div>
+                <div class="category">Vegetarian</div>
+                <div class="menu-details">
+                    <div class="price">₹120</div>
+                    <div class="pickup-time">Pickup: 8:30 PM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+
+            <!-- Menu Item 4 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Masala Dosa</div>
+                    <div class="rating">⭐ 4.6</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">S</div>
+                    <span>Suresh Patel (A-0911)</span>
+                </div>
+                <div class="category">Snacks</div>
+                <div class="menu-details">
+                    <div class="price">₹80</div>
+                    <div class="pickup-time">Pickup: 9:00 AM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+
+            <!-- Menu Item 5 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Fish Curry</div>
+                    <div class="rating">⭐ 4.8</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">M</div>
+                    <span>Maria Fernandes (A-1307)</span>
+                </div>
+                <div class="category">Non-Vegetarian</div>
+                <div class="menu-details">
+                    <div class="price">₹200</div>
+                    <div class="pickup-time">Pickup: 7:00 PM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+
+            <!-- Menu Item 6 -->
+            <div class="menu-card">
+                <div class="menu-header">
+                    <div class="menu-title">Pani Puri</div>
+                    <div class="rating">⭐ 4.5</div>
+                </div>
+                <div class="seller-info">
+                    <div class="seller-avatar">V</div>
+                    <span>Vikram Singh (A-1109)</span>
+                </div>
+                <div class="category">Snacks</div>
+                <div class="menu-details">
+                    <div class="price">₹60</div>
+                    <div class="pickup-time">Pickup: 6:00 PM</div>
+                </div>
+                <button class="order-btn">Order Now</button>
+            </div>
+        </div>
+
+        <div class="status warning">
+            <h3>🚀 Emulator Mode</h3>
+            <p><strong>Backend Status:</strong> FastAPI server would be running on http://localhost:8000</p>
+            <p><strong>Frontend Status:</strong> React PWA would be running on http://localhost:3000</p>
+            <p><strong>Database:</strong> PostgreSQL + Redis would be running in Docker containers</p>
+            <p><strong>Features Ready:</strong> User registration, menu management, ordering, ratings</p>
+        </div>
+
+        <div class="hero">
+            <h3>📱 Mobile-First PWA</h3>
+            <p>This interface is responsive and works perfectly on mobile devices. In a real app, you could install it as a PWA for offline access.</p>
+        </div>
+    </div>
+
+    <script>
+        // Simple interaction demo
+        document.querySelectorAll('.order-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const itemName = this.parentElement.querySelector('.menu-title').textContent;
+                alert(`🎉 Order placed for ${itemName}!\n\nIn the real app, this would:\n• Check available quantity\n• Process payment (cash on pickup)\n• Send notifications\n• Update order status`);
+            });
+        });
+
+        // Tab switching demo
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                const tabText = this.textContent;
+                if (tabText.includes('My Orders')) {
+                    alert('📋 My Orders would show:\n• Current orders\n• Order history\n• Pickup confirmations\n• Ratings to submit');
+                } else if (tabText.includes('Profile')) {
+                    alert('👤 Profile would include:\n• Personal information\n• Seller dashboard (if applicable)\n• Order preferences\n• Account settings');
+                }
+            });
+        });
+
+        // PWA-like behavior demo
+        if ('serviceWorker' in navigator) {
+            console.log('✅ Service Worker supported - PWA features available');
+        }
+    </script>
+</body>
+</html>
