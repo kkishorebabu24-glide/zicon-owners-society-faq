@@ -3,7 +3,7 @@ Application configuration
 """
 
 from typing import List
-from pydantic_settings import BaseSettings
+from pydantic import BaseSettings
 from functools import lru_cache
 
 

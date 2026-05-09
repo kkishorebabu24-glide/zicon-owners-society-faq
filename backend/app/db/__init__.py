@@ -1,7 +1,7 @@
 # Database and models package
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine  # type: ignore[import]
+from sqlalchemy.orm import declarative_base, sessionmaker  # type: ignore[import]
 
 Base = declarative_base()
 

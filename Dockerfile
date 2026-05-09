@@ -1,6 +1,6 @@
 # Backend Dockerfile - FastAPI with Docker Hardened Images
-# DHI images provide hardened, minimal base with security best practices
-# Simplified approach: install dependencies in runtime stage
+# DHI provides hardened, minimal base with security best practices
+# Production-ready image with development volume mount support
 
 FROM dhi.io/python:3.10-debian13-dev
 
@@ -26,4 +26,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
     CMD python -m http.client localhost 8000 /health || exit 1
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

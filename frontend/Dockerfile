@@ -1,28 +1,30 @@
 # Frontend Dockerfile - React PWA with Docker Hardened Images
 # Multi-stage build: Node builder + Nginx runtime
+# DHI hardened base for production security
 
 # Stage 1: Builder
 FROM dhi.io/node:20-debian13-dev AS builder
 
 WORKDIR /app
 
-# Copy package files first for layer caching
-COPY frontend/package*.json ./
+ARG REACT_APP_API_URL=http://localhost:8000
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 
-# Install dependencies
+# Copy package files and install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy source
-COPY frontend .
-
-# Build production bundle (disable eslint for line ending issues)
+# Copy source and build production bundle
+COPY . .
 RUN DISABLE_ESLINT_PLUGIN=true npm run build
 
-# Stage 2: Runtime (using -dev for shell access)
+# Stage 2: Runtime
 FROM dhi.io/nginx:1.30-debian13-dev
 
+WORKDIR /usr/share/nginx/html
+
 # Copy nginx configuration
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built app from builder
 COPY --from=builder /app/build /usr/share/nginx/html
