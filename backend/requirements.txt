@@ -13,6 +13,10 @@ alembic==1.12.1
 
 # Cache & Queue
 redis==5.0.1
+aioredis==2.0.1
+
+# WebSockets & Real-time
+websockets==12.0
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0
