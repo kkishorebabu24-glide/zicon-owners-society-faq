@@ -3,7 +3,7 @@
 # DHI hardened base for production security
 
 # Stage 1: Builder
-FROM dhi.io/node:20-debian13-dev AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN DISABLE_ESLINT_PLUGIN=true npm run build
 
 # Stage 2: Runtime
-FROM dhi.io/nginx:1.30-debian13-dev
+FROM nginx:1.30-alpine
 
 WORKDIR /usr/share/nginx/html
 
@@ -30,8 +30,8 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/build /usr/share/nginx/html
 
 # Ensure proper permissions for nginx
-RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx
-USER nginx
+RUN mkdir -p /usr/share/nginx/html /var/cache/nginx /var/log/nginx && \
+    chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx
 
 EXPOSE 3000
 

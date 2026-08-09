@@ -7,19 +7,15 @@ import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import ArticleIcon from '@mui/icons-material/Article';
-import TelegramIcon from '@mui/icons-material/Telegram';
 import NotificationCenter from './components/NotificationCenter';
 import SocietyNotifications from './components/SocietyNotifications';
 import AuthPage from './components/AuthPage';
 import UserDashboard from './components/UserDashboard';
 import ListingsComponent from './components/ListingsComponent';
 import DigestsComponent from './components/DigestsComponent';
-import TelegramIntegration from './components/TelegramIntegration';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import useWebSocket from './hooks/useWebSocket';
-
-const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 function AppLayout({ children }) {
   const { user, logout, isAuthenticated } = useAuth();
@@ -48,7 +44,6 @@ function AppLayout({ children }) {
     { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { label: 'Marketplace', icon: <ShoppingBagIcon />, path: '/marketplace' },
     { label: 'Digests', icon: <ArticleIcon />, path: '/digests' },
-    ...(user?.role === 'admin' ? [{ label: 'Telegram', icon: <TelegramIcon />, path: '/telegram' }] : []),
   ];
 
   const handleNavigate = (path) => {
@@ -168,39 +163,12 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute element={<UserDashboard />} />} />
           <Route path="/marketplace" element={<ProtectedRoute element={<ListingsComponent />} />} />
           <Route path="/digests" element={<ProtectedRoute element={<DigestsComponent />} />} />
-          <Route path="/telegram" element={<ProtectedRoute element={<TelegramIntegration />} />} />
 
           {/* Fallback Route */}
           <Route path="/" element={isAuthenticated ? <UserDashboard /> : <AuthPage />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
-  );
-}
-
-export default App;
-                </Box>
-
-                {/* Features */}
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Real-time Features Enabled ✅
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Typography variant="body2">✅ Real-time listing updates (create, update, close)</Typography>
-                    <Typography variant="body2">✅ Real-time match notifications</Typography>
-                    <Typography variant="body2">✅ Real-time digest publication & delivery</Typography>
-                    <Typography variant="body2">✅ Automatic WebSocket reconnection with exponential backoff</Typography>
-                    <Typography variant="body2">✅ Redux state management for real-time data</Typography>
-                    <Typography variant="body2">✅ Toast/notification center for events</Typography>
-                  </Stack>
-                </Box>
-              </Stack>
-            </Box>
-          )}
-        </Box>
-      </Container>
-    </Box>
   );
 }
 

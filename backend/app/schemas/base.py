@@ -2,6 +2,8 @@
 Pydantic schemas for API request/response validation
 """
 
+from __future__ import annotations
+
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from enum import Enum
@@ -146,11 +148,6 @@ class ListingResponse(ListingBase):
         from_attributes = True
 
 
-class ListingDetailResponse(ListingResponse):
-    matches: List["MatchResponse"] = []
-    reviews: List["ReviewResponse"] = []
-
-
 # ============================================================================
 # MATCH SCHEMAS
 # ============================================================================
@@ -208,6 +205,14 @@ class ReviewResponse(ReviewBase):
         from_attributes = True
 
 
+class ListingDetailResponse(ListingResponse):
+    matches: list[MatchResponse] = Field(default_factory=list)
+    reviews: list[ReviewResponse] = Field(default_factory=list)
+
+
+ListingDetailResponse.model_rebuild()
+
+
 # ============================================================================
 # DIGEST SCHEMAS
 # ============================================================================
@@ -250,14 +255,14 @@ class DigestResponse(DigestBase):
         from_attributes = True
 
 
-class DigestDetailResponse(DigestResponse):
-    subscriptions: List["DigestSubscriptionResponse"] = []
-
-
 class DigestSubscriptionResponse(BaseModel):
     id: int
     user_id: int
     digest_id: int
+
+
+class DigestDetailResponse(DigestResponse):
+    subscriptions: List["DigestSubscriptionResponse"] = Field(default_factory=list)
     delivery_status: str
     delivery_channel: str
     is_read: bool

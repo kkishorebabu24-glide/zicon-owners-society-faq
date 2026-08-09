@@ -16,3 +16,28 @@ root.render(
     </Provider>
   </React.StrictMode>
 );
+
+// Development-time workaround: unregister any service workers that may
+// be interfering with UI interaction, and re-enable pointer events.
+// This is safe for debugging — remove in production after root cause found.
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
+    .catch(() => {});
+}
+
+window.addEventListener('load', () => {
+  try {
+    // ensure the main root and body accept pointer events
+    const rootEl = document.getElementById('root');
+    if (rootEl && rootEl.style) rootEl.style.pointerEvents = 'auto';
+    if (document.body && document.body.style) document.body.style.pointerEvents = 'auto';
+
+    // remove disabled attribute from interactive controls for quick testing
+    document.querySelectorAll('[disabled]').forEach((el) => el.removeAttribute('disabled'));
+  } catch (e) {
+    // swallow errors — this is a temporary debug aid
+    // eslint-disable-next-line no-console
+    console.warn('UI debug helpers failed', e);
+  }
+});

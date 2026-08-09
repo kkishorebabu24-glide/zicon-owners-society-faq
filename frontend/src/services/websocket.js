@@ -7,10 +7,15 @@
  * - Digest delivery (new digest published or delivered)
  */
 
+import { authService } from './authService';
+
 class WebSocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.token = authService.getToken();
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
     this.listeners = {
       listing_created: [],
       listing_updated: [],
@@ -30,19 +35,41 @@ class WebSocketService {
    * @param {string[]} channels - Channels to subscribe to
    * @param {string} apiUrl - API base URL (default: http://localhost:8000)
    */
-  connect(userId, channels = ['marketplace'], apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000') {
-    if (this.isConnected) {
-      console.warn('WebSocket already connected');
-      return;
+  connect(userId, channels = ['marketplace'], apiUrl = process.env.REACT_APP_API_URL || '') {
+    // Close existing socket before reconnecting to avoid leaking resources.
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      console.warn('Existing WebSocket open, closing before reconnect');
+      try {
+        this.socket.close();
+      } catch (e) {
+        // ignore
+      }
     }
 
-    const wsUrl = apiUrl.replace(/^http/, 'ws');
     const channelParam = channels.join(',');
-    const url = `${wsUrl}/api/v1/marketplace/ws/listings?user_id=${userId}&channels=${channelParam}`;
+    this.token = authService.getToken();
+    const tokenParam = this.token ? `&token=${encodeURIComponent(this.token)}` : '';
+
+    let wsUrl;
+    if (apiUrl) {
+      wsUrl = apiUrl.replace(/^http/, 'ws');
+    } else if (typeof window !== 'undefined') {
+      wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+    } else {
+      wsUrl = 'ws://localhost:8000';
+    }
+
+    const url = `${wsUrl}/api/v1/marketplace/ws/listings?channels=${channelParam}${tokenParam}`;
 
     console.log(`Connecting to WebSocket: ${url}`);
 
-    this.socket = new WebSocket(url);
+    try {
+      this.socket = new WebSocket(url);
+    } catch (err) {
+      console.error('Failed to create WebSocket:', err);
+      this.reconnectWithBackoff(userId, channels, apiUrl, this.maxReconnectAttempts);
+      return;
+    }
 
     this.socket.onopen = () => {
       this.isConnected = true;
@@ -62,12 +89,28 @@ class WebSocketService {
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
       this.emit('connection_error', { error: error.message || 'WebSocket error' });
+      // Try reconnecting on error
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts += 1;
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+        console.log(`WebSocket error - scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+        setTimeout(() => this.connect(userId, channels, apiUrl), delay);
+      } else {
+        console.error('Max WebSocket reconnect attempts reached');
+      }
     };
 
     this.socket.onclose = () => {
       this.isConnected = false;
       console.log('WebSocket disconnected');
       this.emit('connection_closed', { timestamp: new Date() });
+      // On unexpected close, attempt reconnect with backoff
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts += 1;
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+        console.log(`WebSocket closed - scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+        setTimeout(() => this.connect(userId, channels, apiUrl), delay);
+      }
     };
   }
 
@@ -190,37 +233,38 @@ class WebSocketService {
    * Reconnect with exponential backoff
    */
   reconnectWithBackoff(userId, channels, apiUrl, maxAttempts = 5) {
-    let attempts = 0;
+    // Use instance-level reconnectAttempts to track attempts across calls
+    this.maxReconnectAttempts = maxAttempts;
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('Max reconnection attempts already reached');
+      return;
+    }
 
-    const attemptConnect = () => {
-      attempts++;
-      console.log(`Reconnection attempt ${attempts}/${maxAttempts}`);
+    this.reconnectAttempts += 1;
+    const attempts = this.reconnectAttempts;
+    console.log(`Reconnection attempt ${attempts}/${this.maxReconnectAttempts}`);
 
-      try {
-        this.connect(userId, channels, apiUrl);
+    try {
+      this.connect(userId, channels, apiUrl);
 
-        if (this.isWebSocketConnected()) {
-          console.log('Reconnection successful');
-          return;
-        }
-      } catch (error) {
-        console.error('Reconnection failed:', error);
+      if (this.isWebSocketConnected()) {
+        console.log('Reconnection successful');
+        this.reconnectAttempts = 0;
+        return;
       }
+    } catch (error) {
+      console.error('Reconnection failed:', error);
+    }
 
-      if (attempts < maxAttempts) {
-        const delay = Math.min(1000 * Math.pow(2, attempts - 1), 30000); // Exponential backoff, max 30s
-        console.log(`Retrying in ${delay}ms...`);
-        setTimeout(attemptConnect, delay);
-      } else {
-        console.error('Max reconnection attempts reached');
-      }
-    };
-
-    attemptConnect();
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
+      console.log(`Retrying in ${delay}ms...`);
+      setTimeout(() => this.reconnectWithBackoff(userId, channels, apiUrl, this.maxReconnectAttempts), delay);
+    } else {
+      console.error('Max reconnection attempts reached');
+    }
   }
 }
 
-// Create a singleton instance
-export const webSocketService = new WebSocketService();
-
-export default WebSocketService;
+const webSocketService = new WebSocketService();
+export default webSocketService;

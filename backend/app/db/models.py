@@ -121,7 +121,7 @@ class TelegramGroup(Base):
     """Telegram group monitored by the application"""
     __tablename__ = "telegram_groups"
     __table_args__ = (
-        Index('idx_chat_id', 'chat_id'),
+        Index('idx_telegram_group_chat_id', 'chat_id'),
         UniqueConstraint('chat_id', name='uq_telegram_chat_id'),
     )
 
@@ -154,9 +154,9 @@ class Message(Base):
     """Message from Telegram group"""
     __tablename__ = "messages"
     __table_args__ = (
-        Index('idx_telegram_group_id', 'telegram_group_id'),
-        Index('idx_message_id', 'telegram_message_id'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_message_telegram_group_id', 'telegram_group_id'),
+        Index('idx_message_telegram_message_id', 'telegram_message_id'),
+        Index('idx_message_created_at', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -193,10 +193,10 @@ class Listing(Base):
     """Base model for Offers and Requests"""
     __tablename__ = "listings"
     __table_args__ = (
-        Index('idx_creator_id', 'creator_id'),
-        Index('idx_type', 'type'),
-        Index('idx_status', 'status'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_listing_creator_id', 'creator_id'),
+        Index('idx_listing_type', 'type'),
+        Index('idx_listing_status', 'status'),
+        Index('idx_listing_created_at', 'created_at'),
         CheckConstraint('price >= 0', name='chk_price_positive'),
     )
 
@@ -246,9 +246,9 @@ class Match(Base):
     """Match between offer and request (or two users)"""
     __tablename__ = "matches"
     __table_args__ = (
-        Index('idx_listing_id', 'listing_id'),
-        Index('idx_user_id', 'user_id'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_match_listing_id', 'listing_id'),
+        Index('idx_match_user_id', 'user_id'),
+        Index('idx_match_created_at', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -283,8 +283,8 @@ class Review(Base):
     """Review/Rating for users after transaction"""
     __tablename__ = "reviews"
     __table_args__ = (
-        Index('idx_listing_id', 'listing_id'),
-        Index('idx_reviewer_id', 'reviewer_id'),
+        Index('idx_review_listing_id', 'listing_id'),
+        Index('idx_review_reviewer_id', 'reviewer_id'),
         CheckConstraint('rating >= 1 AND rating <= 5', name='chk_rating_range'),
     )
 
@@ -319,8 +319,8 @@ class Digest(Base):
     """AI-generated daily/weekly digest from Telegram messages"""
     __tablename__ = "digests"
     __table_args__ = (
-        Index('idx_telegram_group_id', 'telegram_group_id'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_digest_telegram_group_id', 'telegram_group_id'),
+        Index('idx_digest_created_at', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -359,8 +359,8 @@ class DigestSubscription(Base):
     """User subscription to digest delivery"""
     __tablename__ = "digest_subscriptions"
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_digest_id', 'digest_id'),
+        Index('idx_digest_subscription_user_id', 'user_id'),
+        Index('idx_digest_subscription_digest_id', 'digest_id'),
         UniqueConstraint('user_id', 'digest_id', name='uq_user_digest'),
     )
 
@@ -396,9 +396,9 @@ class Activity(Base):
     """Activity log for real-time updates"""
     __tablename__ = "activities"
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_related_type', 'related_type'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_activity_user_id', 'user_id'),
+        Index('idx_activity_related_type', 'related_type'),
+        Index('idx_activity_created_at', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -426,10 +426,10 @@ class SocietyNotification(Base):
     """Notifications for society members"""
     __tablename__ = "society_notifications"
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_type', 'type'),
-        Index('idx_is_read', 'is_read'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_notification_user_id', 'user_id'),
+        Index('idx_notification_type', 'type'),
+        Index('idx_notification_is_read', 'is_read'),
+        Index('idx_notification_created_at', 'created_at'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -450,7 +450,7 @@ class SocietyNotification(Base):
     
     # Additional Data
     action_url = Column(String(500), nullable=True)
-    metadata = Column(JSON, nullable=True)
+    extra_data = Column(JSON, nullable=True)
     
     # Status
     is_read = Column(Boolean, default=False)

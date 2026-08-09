@@ -2,16 +2,16 @@
 JWT token generation and verification
 """
 
+import base64
+import binascii
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from app.config import settings
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class TokenData(BaseModel):
@@ -22,13 +22,33 @@ class TokenData(BaseModel):
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt"""
-    return pwd_context.hash(password)
+    """Hash a password using PBKDF2 with a random salt."""
+    salt = secrets.token_bytes(16)
+    derived_key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    salt_b64 = base64.b64encode(salt).decode("ascii")
+    hash_b64 = base64.b64encode(derived_key).decode("ascii")
+    return f"pbkdf2_sha256$200000${salt_b64}${hash_b64}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against its stored PBKDF2 hash."""
+    if not hashed_password.startswith("pbkdf2_sha256$"):
+        return False
+
+    try:
+        _, iterations_str, salt_b64, hash_b64 = hashed_password.split("$", 3)
+        iterations = int(iterations_str)
+        salt = base64.b64decode(salt_b64.encode("ascii"))
+        expected_hash = base64.b64decode(hash_b64.encode("ascii"))
+        derived_key = hashlib.pbkdf2_hmac(
+            "sha256",
+            plain_password.encode("utf-8"),
+            salt,
+            iterations,
+        )
+        return secrets.compare_digest(derived_key, expected_hash)
+    except (ValueError, TypeError, binascii.Error):
+        return False
 
 
 def create_access_token(user_id: int, email: str, role: str, expires_delta: Optional[timedelta] = None) -> str:

@@ -2,14 +2,16 @@
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
+from jose import jwt
 
-from app.db.models import User
+from app.db.models import User, UserRole
 from app.schemas.base import UserCreate, LoginRequest, TokenResponse, UserResponse
 from app.core.jwt_handler import hash_password, verify_password, create_access_token, create_refresh_token, verify_token
 from app.core.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
@@ -50,7 +52,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
             password_hash=hash_password(user_data.password),
             bio=user_data.bio,
             address=user_data.address,
-            role="resident"  # Default role
+            role=UserRole.RESIDENT  # Default role
         )
         db.add(new_user)
         db.commit()
@@ -109,11 +111,11 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         )
     
     # Update last login time
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     
     # Create tokens
-    access_token = create_access_token(user.id, user.email, user.role)
+    access_token = create_access_token(user.id, user.email, user.role.value)
     refresh_token = create_refresh_token(user.id, user.email)
     
     logger.info(f"User logged in: {user.email} (ID: {user.id})")
@@ -126,7 +128,7 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(token: str):
+async def refresh_token(token: str, db: Session = Depends(get_db)):
     """
     Refresh access token using refresh token
     
@@ -136,28 +138,30 @@ async def refresh_token(token: str):
         - token_type: "bearer"
         - expires_in: Access token expiration in seconds
     """
-    # Verify refresh token
-    payload = verify_token(token)  # This will fail for refresh tokens, need custom logic
-    
     try:
-        from jose import jwt
-        from app.config import settings
-        
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
-        
+
         user_id = payload.get("user_id")
         email = payload.get("email")
-        role = payload.get("role", "resident")
-        
-        # Create new access token
-        access_token = create_access_token(user_id, email, role)
-        
+        if not user_id or not email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token payload"
+            )
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User inactive or not found"
+            )
+
+        access_token = create_access_token(user.id, user.email, user.role.value)
         return TokenResponse(
             access_token=access_token,
             refresh_token=token,
@@ -178,7 +182,7 @@ async def get_current_user_info(current_user = Depends(get_current_active_user),
     
     Requires: Valid JWT access token in Authorization header
     """
-    user = db.query(User).filter(User.id == current_user.user_id).first()
+    user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -196,5 +200,5 @@ async def logout(current_user = Depends(get_current_active_user)):
     Note: JWT tokens are stateless, so logout is handled by client
     deleting the token. This endpoint is for logging purposes.
     """
-    logger.info(f"User logged out: {current_user.email} (ID: {current_user.user_id})")
+    logger.info(f"User logged out: {current_user.email} (ID: {current_user.id})")
     return {"message": "Logged out successfully"}

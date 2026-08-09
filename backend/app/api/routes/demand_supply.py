@@ -22,7 +22,9 @@ from app.schemas.base import (
 )
 from app.core.websocket_manager import get_connection_manager
 from app.core.database import get_db
+from app.core.jwt_handler import verify_token
 from app.config import settings
+from app.core.dependencies import get_current_active_user
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +114,7 @@ async def get_requests(
 @router.post("/listings", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)
 async def create_listing(
     listing_data: ListingCreate,
-    creator_id: int = Query(..., description="Current user ID"),  # TODO: Get from auth token
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> ListingResponse:
     """
@@ -125,7 +127,7 @@ async def create_listing(
     
     # Create listing
     listing = Listing(
-        creator_id=creator_id,
+        creator_id=current_user.id,
         type=listing_data.type,
         title=listing_data.title,
         description=listing_data.description,
@@ -152,11 +154,11 @@ async def create_listing(
             "title": listing.title,
             "category": listing.category,
             "price": listing.price,
-            "creator_id": creator_id,
+            "creator_id": current_user.id,
             "created_at": listing.created_at.isoformat(),
         }
     )
-    logger.info(f"Listing {listing.id} created by user {creator_id}")
+    logger.info("Listing %s created by user %s", listing.id, current_user.id)
     
     return ListingResponse.model_validate(listing)
 
@@ -185,7 +187,7 @@ async def get_listing(
 async def update_listing(
     listing_id: int,
     listing_data: ListingUpdate,
-    user_id: int = Query(..., description="Current user ID"),  # TODO: Get from auth token
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> ListingResponse:
     """
@@ -201,7 +203,7 @@ async def update_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     
     # Check authorization
-    if listing.creator_id != user_id:
+    if listing.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to update this listing")
     
     # Update fields
@@ -223,7 +225,7 @@ async def update_listing(
             "updated_at": listing.updated_at.isoformat(),
         }
     )
-    logger.info(f"Listing {listing_id} updated by user {user_id}")
+    logger.info("Listing %s updated by user %s", listing.id, current_user.id)
     
     return ListingResponse.model_validate(listing)
 
@@ -231,7 +233,7 @@ async def update_listing(
 @router.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_listing(
     listing_id: int,
-    user_id: int = Query(..., description="Current user ID"),  # TODO: Get from auth token
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -247,7 +249,7 @@ async def delete_listing(
         raise HTTPException(status_code=404, detail="Listing not found")
     
     # Check authorization
-    if listing.creator_id != user_id:
+    if listing.creator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this listing")
     
     # Soft delete by marking as cancelled
@@ -265,7 +267,7 @@ async def delete_listing(
             "closed_at": datetime.utcnow().isoformat(),
         }
     )
-    logger.info(f"Listing {listing_id} deleted by user {user_id}")
+    logger.info("Listing %s deleted by user %s", listing_id, current_user.id)
 
 
 # ============================================================================
@@ -338,7 +340,7 @@ async def create_match(
 async def update_match(
     match_id: int,
     match_data: MatchUpdate,
-    user_id: int = Query(..., description="Current user ID"),  # TODO: Get from auth token
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> MatchResponse:
     """Update a match status"""
@@ -349,6 +351,10 @@ async def update_match(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
+# Authorization: only listing owner or matched user may update match status
+    if current_user.id not in {match.user_id, match.listing.creator_id}:
+        raise HTTPException(status_code=403, detail="Not authorized to update this match")
+
     update_data = match_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(match, field, value)
@@ -368,7 +374,7 @@ async def update_match(
 async def create_review(
     listing_id: int,
     review_data: ReviewCreate,
-    reviewer_id: int = Query(..., description="Current user ID"),  # TODO: Get from auth token
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> ReviewResponse:
     """Create a review for a listing"""
@@ -382,7 +388,7 @@ async def create_review(
     
     review = Review(
         listing_id=listing_id,
-        reviewer_id=reviewer_id,
+        reviewer_id=current_user.id,
         reviewee_id=review_data.reviewee_id,
         rating=review_data.rating,
         comment=review_data.comment,
@@ -402,6 +408,7 @@ async def create_review(
 @router.websocket("/ws/listings")
 async def websocket_listings(
     websocket: WebSocket,
+    token: Optional[str] = Query(None, description="JWT token for WebSocket authentication"),
     user_id: Optional[int] = None,
     channels: Optional[str] = None,
 ):
@@ -416,6 +423,16 @@ async def websocket_listings(
     Example: ws://localhost:8000/api/v1/marketplace/ws/listings?user_id=123&channels=listing_updates,marketplace
     """
     manager = get_connection_manager()
+
+    # Authenticate WebSocket if token is provided
+    if token:
+        token_data = verify_token(token)
+        if not token_data:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        user_id = token_data.user_id
+    elif user_id is not None:
+        logger.warning("WebSocket connected using unsecured user_id query param")
     
     # Parse channels
     channel_list = ["marketplace"]  # Default

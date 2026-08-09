@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
 
 // Create auth context
@@ -9,9 +9,13 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const hasInitialized = useRef(false);
 
-  // Initialize auth state on mount
+  // Initialize auth state on mount - only once
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const initAuth = async () => {
       if (authService.isAuthenticated()) {
         try {

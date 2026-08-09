@@ -9,8 +9,13 @@ import json
 import logging
 from typing import Dict, Set, List, Optional, Any
 from fastapi import WebSocket, WebSocketDisconnect
-import aioredis
 from datetime import datetime
+from app.config import settings
+
+try:
+    import aioredis
+except ImportError:  # Python 3.13+ compatibility
+    import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +33,7 @@ class ConnectionManager:
 
     def __init__(self, redis_url: str = "redis://redis:6379/0"):
         self.redis_url = redis_url
-        self.redis: Optional[aioredis.Redis] = None
+        self.redis: Optional[Any] = None
         
         # Active WebSocket connections grouped by subscription type
         self.active_connections: Dict[str, Set[WebSocket]] = {
@@ -38,7 +43,12 @@ class ConnectionManager:
             "marketplace": set(),
         }
         
-        self.pubsub_channels: Dict[str, aioredis.client.PubSub] = {}
+        self.pubsub_channels: Dict[str, Any] = {}
+        # Maximum allowed concurrent WebSocket connections to protect resources
+        try:
+            self.max_connections = int(getattr(settings, 'WEBSOCKET_MAX_CONNECTIONS', 500))
+        except Exception:
+            self.max_connections = 500
 
     async def initialize(self):
         """Initialize Redis connection"""
@@ -64,7 +74,18 @@ class ConnectionManager:
             user_id: User ID for user-specific updates
             channels: List of channels to subscribe to (user, listing_updates, digest_delivery, marketplace)
         """
+        # Accept connection then enforce max-connections limit
         await websocket.accept()
+        stats = self.get_connection_stats()
+        total_connections = stats.get('total_connections', 0)
+        if total_connections >= self.max_connections:
+            # Too many connections - politely close with try-again-later code
+            logger.warning(f"WebSocket connection refused: too many connections ({total_connections})")
+            try:
+                await websocket.close(code=1013)
+            except Exception:
+                pass
+            return
         logger.info(f"WebSocket connected - User ID: {user_id}, Channels: {channels}")
         
         if channels is None:

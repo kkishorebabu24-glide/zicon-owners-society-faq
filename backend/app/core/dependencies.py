@@ -3,13 +3,17 @@ Authentication dependencies for FastAPI routes
 """
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthenticationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
 from app.core.jwt_handler import verify_token
+from app.db.models import User
 
 security = HTTPBearer()
 
 
-async def get_current_user(credentials: HTTPAuthenticationCredentials = Depends(security)):
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
     Dependency to extract and verify current user from JWT token
     Usage: async def my_route(current_user = Depends(get_current_user))
@@ -27,13 +31,21 @@ async def get_current_user(credentials: HTTPAuthenticationCredentials = Depends(
     return token_data
 
 
-async def get_current_active_user(current_user = Depends(get_current_user)):
+async def get_current_active_user(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Dependency to get current user and verify they are active
     """
-    # TODO: Query database to verify user is still active
-    # For now, just return the token data
-    return current_user
+    user = db.query(User).filter(User.id == current_user.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive or not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
 
 
 async def require_admin(current_user = Depends(get_current_user)):

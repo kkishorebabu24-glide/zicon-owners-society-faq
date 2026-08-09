@@ -6,9 +6,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
 from app.db.models import TelegramGroup, Message
-from app.schemas.base import (
-    TelegramGroupResponse, TelegramGroupCreate, PaginatedResponse, TelegramGroupUpdate
-)
+from app.schemas.base import PaginatedResponse
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 
