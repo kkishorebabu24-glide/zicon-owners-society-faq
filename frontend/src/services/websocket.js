@@ -16,6 +16,8 @@ class WebSocketService {
     this.token = authService.getToken();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
+    this.reconnectTimer = null;
+    this.connecting = false;
     this.listeners = {
       listing_created: [],
       listing_updated: [],
@@ -35,24 +37,38 @@ class WebSocketService {
    * @param {string[]} channels - Channels to subscribe to
    * @param {string} apiUrl - API base URL (default: http://localhost:8000)
    */
-  connect(userId, channels = ['marketplace'], apiUrl = process.env.REACT_APP_API_URL || '') {
-    // Close existing socket before reconnecting to avoid leaking resources.
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      console.warn('Existing WebSocket open, closing before reconnect');
-      try {
-        this.socket.close();
-      } catch (e) {
-        // ignore
+  connect(userId, channels = ['marketplace'], apiUrl = process.env.REACT_APP_WEBSOCKET_URL || process.env.REACT_APP_API_URL || '') {
+    // Clear any pending reconnect timers to avoid race conditions
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    // If already connected or in the process of connecting, skip a new connect
+    if (this.socket) {
+      const state = this.socket.readyState;
+      if (state === WebSocket.CONNECTING) {
+        console.warn('WebSocket is currently connecting; skipping duplicate connect');
+        return;
       }
+      if (state === WebSocket.OPEN) {
+        console.warn('WebSocket already open; skipping connect');
+        return;
+      }
+      // For CLOSING or CLOSED, clear reference and proceed
+      this.socket = null;
     }
 
     const channelParam = channels.join(',');
     this.token = authService.getToken();
     const tokenParam = this.token ? `&token=${encodeURIComponent(this.token)}` : '';
 
+    const rawApiUrl = apiUrl ? String(apiUrl).replace(/\/+$/, '') : '';
     let wsUrl;
-    if (apiUrl) {
-      wsUrl = apiUrl.replace(/^http/, 'ws');
+    if (rawApiUrl) {
+      wsUrl = rawApiUrl
+        .replace(/^http:\/\//i, 'ws://')
+        .replace(/^https:\/\//i, 'wss://');
     } else if (typeof window !== 'undefined') {
       wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
     } else {
@@ -64,8 +80,10 @@ class WebSocketService {
     console.log(`Connecting to WebSocket: ${url}`);
 
     try {
+      this.connecting = true;
       this.socket = new WebSocket(url);
     } catch (err) {
+      this.connecting = false;
       console.error('Failed to create WebSocket:', err);
       this.reconnectWithBackoff(userId, channels, apiUrl, this.maxReconnectAttempts);
       return;
@@ -73,6 +91,12 @@ class WebSocketService {
 
     this.socket.onopen = () => {
       this.isConnected = true;
+      this.connecting = false;
+      // successful connection -> clear any scheduled reconnect attempts
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
       console.log('WebSocket connected');
       this.emit('connection_opened', { timestamp: new Date() });
     };
@@ -89,12 +113,16 @@ class WebSocketService {
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
       this.emit('connection_error', { error: error.message || 'WebSocket error' });
-      // Try reconnecting on error
+      // Try reconnecting on error (use a single reconnect timer)
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts += 1;
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
         console.log(`WebSocket error - scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
-        setTimeout(() => this.connect(userId, channels, apiUrl), delay);
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connect(userId, channels, apiUrl);
+        }, delay);
       } else {
         console.error('Max WebSocket reconnect attempts reached');
       }
@@ -102,14 +130,19 @@ class WebSocketService {
 
     this.socket.onclose = () => {
       this.isConnected = false;
+      this.connecting = false;
       console.log('WebSocket disconnected');
       this.emit('connection_closed', { timestamp: new Date() });
-      // On unexpected close, attempt reconnect with backoff
+      // On unexpected close, attempt reconnect with backoff (single timer)
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts += 1;
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
         console.log(`WebSocket closed - scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
-        setTimeout(() => this.connect(userId, channels, apiUrl), delay);
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connect(userId, channels, apiUrl);
+        }, delay);
       }
     };
   }
@@ -118,11 +151,22 @@ class WebSocketService {
    * Disconnect WebSocket
    */
   disconnect() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-      this.isConnected = false;
+    // Clear any pending reconnects
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
+
+    if (this.socket) {
+      try {
+        this.socket.close();
+      } catch (e) {
+        // ignore
+      }
+      this.socket = null;
+    }
+    this.isConnected = false;
+    this.connecting = false;
   }
 
   /**
@@ -259,7 +303,11 @@ class WebSocketService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
       console.log(`Retrying in ${delay}ms...`);
-      setTimeout(() => this.reconnectWithBackoff(userId, channels, apiUrl, this.maxReconnectAttempts), delay);
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.reconnectWithBackoff(userId, channels, apiUrl, this.maxReconnectAttempts);
+      }, delay);
     } else {
       console.error('Max reconnection attempts reached');
     }

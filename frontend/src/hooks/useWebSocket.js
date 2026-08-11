@@ -39,7 +39,11 @@ export const useWebSocket = (userId, channels = ['marketplace'], enabled = true)
     const unsubscribeClose = webSocketService.on('connection_closed', handleClose);
     const unsubscribeError = webSocketService.on('connection_error', handleError);
 
-    webSocketService.connect(userId, channels);
+    webSocketService.connect(
+      userId,
+      channels,
+      process.env.REACT_APP_WEBSOCKET_URL || process.env.REACT_APP_API_URL || ''
+    );
 
     return () => {
       unsubscribeOpen();
