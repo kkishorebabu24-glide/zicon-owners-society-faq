@@ -1,47 +1,41 @@
-# Multi-stage build for React frontend
+# Frontend Dockerfile — Multi-stage build for React + Nginx
+#
+# Key changes from original:
+#  - Removed non-root appuser setup (it conflicted with nginx permissions)
+#  - nginx runs as its default user (handles permissions for pid, logs, etc.)
+#  - Health check uses the correct port (80)
 
-# Stage 1: Builder
-FROM node:18-alpine as builder
+# ── Stage 1: Build React app ──────────────────────────────────────────────────
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
+RUN npm install --silent
 
-# Install dependencies
-RUN npm ci
-
-# Copy source
+# Copy source code and build
 COPY . .
-
-# Build production bundle
 RUN npm run build
 
-# Stage 2: Runtime (Nginx)
-FROM nginx:alpine
+# ── Stage 2: Serve with Nginx ─────────────────────────────────────────────────
+FROM nginx:1.25-alpine
 
-# Copy nginx config
+# Remove the default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy our custom nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy built app from builder
+# Copy the built React app from builder stage
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -u 1000 -G appuser -s /bin/sh -D appuser
-
-# Set permissions
-RUN chown -R appuser:appuser /usr/share/nginx/html
-
-# Switch to non-root user
-USER appuser
-
-# Expose port
+# Expose port 80
 EXPOSE 80
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
 
-# Start nginx
+# Start nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]

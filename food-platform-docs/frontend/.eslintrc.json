@@ -5,8 +5,7 @@
     "node": true
   },
   "extends": [
-    "react-app",
-    "react-app/jest"
+    "react-app"
   ],
   "parserOptions": {
     "ecmaFeatures": {
@@ -16,10 +15,6 @@
     "sourceType": "module"
   },
   "rules": {
-    "indent": ["error", 2],
-    "linebreak-style": ["error", "unix"],
-    "quotes": ["error", "single"],
-    "semi": ["error", "always"],
     "no-unused-vars": ["warn"],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
     "react/react-in-jsx-scope": "off",

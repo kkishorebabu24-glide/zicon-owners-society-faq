@@ -1,65 +1,55 @@
 # Backend Python Dependencies
+# Cleaned up: removed conflicting/unused packages
 
-# Web Framework
+# ── Web Framework ────────────────────────────────────────────────────────────
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# Database
+# ── Database ─────────────────────────────────────────────────────────────────
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 alembic==1.12.1
-
-# ORM & Migrations
 sqlalchemy-utils==0.41.1
 
-# Authentication & Security
+# ── Authentication & Security ─────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.1
+# NOTE: passlib 1.7.4 works best with bcrypt < 4.1; pinning to compatible version
+bcrypt==4.0.1
 cryptography==41.0.7
 
-# API Documentation
+# ── Settings & Validation ─────────────────────────────────────────────────────
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
-# Environment Variables
+# ── Environment Variables ─────────────────────────────────────────────────────
 python-dotenv==1.0.0
 
-# HTTP & Requests
+# ── HTTP & Async ──────────────────────────────────────────────────────────────
 requests==2.31.0
 aiofiles==23.2.1
+httpx==0.25.2
 
-# Database Connection Pooling
-asyncpg==0.29.0
+# ── Caching (Redis) ───────────────────────────────────────────────────────────
+# Using redis[hiredis] — includes asyncio support. aioredis removed (deprecated).
+redis[hiredis]==5.0.1
 
-# Caching (Optional but recommended)
-redis==5.0.1
-aioredis==2.0.1
+# ── Email ─────────────────────────────────────────────────────────────────────
+# sendgrid removed; using standard smtplib + aiosmtplib for async email
+aiosmtplib==3.0.1
 
-# Task Queue (Optional)
-celery==5.3.4
-
-# Email
-sendgrid==6.11.0
-
-# Telegram Bot (Optional, for future integration)
-python-telegram-bot==20.3
-
-# Logging
+# ── Logging ───────────────────────────────────────────────────────────────────
 python-json-logger==2.0.7
 
-# Date/Time Utilities
+# ── Date/Time Utilities ───────────────────────────────────────────────────────
 python-dateutil==2.8.2
 
-# Data Validation
+# ── Data Validation ───────────────────────────────────────────────────────────
 email-validator==2.1.0
 
-# Monitoring & Logging
-sentry-sdk==1.38.0
-
-# API Rate Limiting
+# ── API Rate Limiting ─────────────────────────────────────────────────────────
 slowapi==0.1.9
 
-# CORS Support
-fastapi-cors==0.0.6
+# ── Monitoring (Optional) ─────────────────────────────────────────────────────
+sentry-sdk==1.38.0
