@@ -1,7 +1,8 @@
-version: '3.9'
+# Development docker-compose
+# Usage: docker-compose up --build -d
 
 services:
-  # PostgreSQL Database
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
   postgres:
     image: postgres:14-alpine
     container_name: society-food-postgres
@@ -16,12 +17,14 @@ services:
     networks:
       - society_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d society_food"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
 
-  # Redis Cache
+  # ── Redis Cache ────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: society-food-redis
@@ -33,29 +36,40 @@ services:
       - society_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  # FastAPI Backend
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: society-food-backend
     environment:
+      # Database — points to postgres service by service name
       DATABASE_URL: postgresql://postgres:password@postgres:5432/society_food
-      REDIS_URL: redis://redis:6379
-      SECRET_KEY: dev-secret-key-change-in-production
+      # Redis — points to redis service by service name
+      REDIS_URL: redis://redis:6379/0
+      # Security
+      SECRET_KEY: dev-secret-key-change-in-production-256bits
       ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # Environment
       ENVIRONMENT: development
       LOG_LEVEL: INFO
-      CORS_ORIGINS: http://localhost:3000,http://localhost:8080
-      ENABLE_OTP_EMAIL: "true"
+      # CORS — allow the frontend origin
+      CORS_ORIGINS: "http://localhost:3000,http://localhost"
+      # Feature flags
+      ENABLE_OTP_EMAIL: "false"     # Disable real email in dev
       ENABLE_WEBSOCKET: "false"
+      # Python path — ensures imports resolve from /app
+      PYTHONPATH: /app
     ports:
       - "8000:8000"
     volumes:
+      # Mount source for hot-reload (--reload in entrypoint.sh)
       - ./backend:/app
     depends_on:
       postgres:
@@ -64,14 +78,15 @@ services:
         condition: service_healthy
     networks:
       - society_network
-    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
-  # React Frontend
+  # ── React Frontend ─────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -83,14 +98,17 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - society_network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
+    restart: unless-stopped
 
 volumes:
   postgres_data:
